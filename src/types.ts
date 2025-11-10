@@ -20,13 +20,13 @@ export interface AgendaItem {
     id: string;
     title: string;
     time?: string;
-    type: 'AGENDA';
+    type: ItemType.AGENDA;
 }
 
 export interface TodoItem {
     id: string;
     title: string;
-    type: 'TODO';
+    type: ItemType.TODO;
 }
 
 export interface GoogleUser {
