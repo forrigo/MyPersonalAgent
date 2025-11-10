@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Agenda } from './components/Agenda';
-import { Chat } from './components/Chat';
-import { Header } from './components/Header';
-import { Onboarding } from './components/Onboarding';
-import { SettingsModal } from './components/SettingsModal';
-import { Sidebar } from './components/Sidebar';
-import { Permissions, Message, AgendaItem, TodoItem, GoogleUser } from './types';
+// FIX: Corrected import paths to be relative to the project root.
+import { Agenda } from '../components/Agenda';
+import { Chat } from '../components/Chat';
+import { Header } from '../components/Header';
+import { Onboarding } from '../components/Onboarding';
+import { SettingsModal } from '../components/SettingsModal';
+import { Sidebar } from '../components/Sidebar';
+import { Permissions, Message, AgendaItem, TodoItem, GoogleUser } from '../types';
 import * as geminiService from './services/geminiService';
-import * as googleService from './services/googleService';
+import * as googleService from '../services/googleService';
 
 const App: React.FC = () => {
     const [onboardingComplete, setOnboardingComplete] = useState<boolean>(() => localStorage.getItem('onboardingComplete') === 'true');
