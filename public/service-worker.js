@@ -1,24 +1,13 @@
-const CACHE_NAME = 'personal-ai-agent-cache-v2';
+const CACHE_NAME = 'personal-ai-agent-cache-v3';
+// Apenas os arquivos essenciais da "casca" do app. O resto será cacheado pela primeira requisição.
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon.svg',
-  '/index.tsx',
-  '/App.tsx',
-  '/types.ts',
-  '/services/geminiService.ts',
-  '/components/Header.tsx',
-  '/components/Onboarding.tsx',
-  '/components/PermissionsManager.tsx',
-  '/components/Agenda.tsx',
-  '/components/Chat.tsx',
-  '/components/Icons.tsx',
-  '/components/SettingsModal.tsx',
-  'https://cdn.tailwindcss.com',
 ];
 
-// Install: Open cache and add app shell files.
+// Instalação: Abre o cache e adiciona os arquivos da casca do app.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -26,11 +15,11 @@ self.addEventListener('install', event => {
         console.log('Opened cache and caching app shell');
         return cache.addAll(urlsToCache);
       })
-      .then(() => self.skipWaiting()) // Activate the new service worker immediately.
+      .then(() => self.skipWaiting()) // Ativa o novo service worker imediatamente.
   );
 });
 
-// Activate: Clean up old caches.
+// Ativação: Limpa caches antigos.
 self.addEventListener('activate', event => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
@@ -43,13 +32,13 @@ self.addEventListener('activate', event => {
           }
         })
       );
-    }).then(() => self.clients.claim()) // Take control of all open clients.
+    }).then(() => self.clients.claim()) // Assume o controle de todos os clientes abertos.
   );
 });
 
-// Fetch: Use a stale-while-revalidate strategy.
+// Fetch: Usa uma estratégia "stale-while-revalidate".
 self.addEventListener('fetch', event => {
-    // For navigation requests, use network-first to get the latest page.
+    // Para requisições de navegação, use network-first para obter a página mais recente.
     if (event.request.mode === 'navigate') {
         event.respondWith(
             fetch(event.request).catch(() => caches.match('/index.html'))
@@ -61,7 +50,7 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE_NAME).then(cache => {
             return cache.match(event.request).then(response => {
                 const fetchPromise = fetch(event.request).then(networkResponse => {
-                    // We only cache valid responses.
+                    // Apenas respostas válidas são cacheadas.
                     if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
                         cache.put(event.request, networkResponse.clone());
                     }
@@ -70,7 +59,7 @@ self.addEventListener('fetch', event => {
                     console.error('Fetch failed:', err);
                 });
 
-                // Return the cached response immediately if available, and update cache in background.
+                // Retorna a resposta do cache imediatamente se disponível, e atualiza o cache em segundo plano.
                 return response || fetchPromise;
             });
         })
