@@ -46,18 +46,18 @@ const App: React.FC = () => {
     const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
     const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
 
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isSpeechEnabled, setIsSpeechEnabled] = useState(false);
     
     const [initialMessageSent, setInitialMessageSent] = useState(false);
 
-    // Initialize Google API Client
     useEffect(() => {
         const handleAuthUpdate = (user: GoogleUser | null) => {
             setGoogleUser(user);
             setIsGoogleConnected(!!user);
+            setInitialMessageSent(false); // Reset to get a new welcome message on login/logout
         };
         googleService.initClient(handleAuthUpdate);
     }, []);
@@ -118,22 +118,22 @@ const App: React.FC = () => {
         if (onboardingComplete && !initialMessageSent) {
             getInitialMessage();
         }
-    }, [onboardingComplete, initialMessageSent, getInitialMessage]);
+    }, [onboardingComplete, initialMessageSent, getInitialMessage, agendaItems, todoItems]);
 
     useEffect(() => {
         localStorage.setItem('language', language);
-        setInitialMessageSent(false); // Reset to fetch new message when language changes
+        setInitialMessageSent(false);
     }, [language]);
 
 
     const handleSendMessage = async (text: string) => {
         const newUserMessage: Message = { id: Date.now(), text, sender: 'user' };
-        const newMessages = [...messages, newUserMessage];
-        setMessages(newMessages);
+        const updatedMessages = [...messages, newUserMessage];
+        setMessages(updatedMessages);
         setIsLoading(true);
 
         try {
-            const agentResponseText = await geminiService.interactWithAgent(text, permissions, agendaItems, todoItems, newMessages, isGoogleConnected, language);
+            const agentResponseText = await geminiService.interactWithAgent(updatedMessages, permissions, agendaItems, todoItems, isGoogleConnected, language);
             const agentMessage: Message = { id: Date.now() + 1, text: agentResponseText, sender: 'agent' };
             setMessages(prev => [...prev, agentMessage]);
         } catch (error) {
@@ -153,12 +153,10 @@ const App: React.FC = () => {
     const handleConnectGoogle = () => googleService.signIn();
     const handleDisconnectGoogle = () => {
         googleService.signOut();
-        setGoogleUser(null);
-        setIsGoogleConnected(false);
     };
 
     if (!onboardingComplete) {
-        return <Onboarding onComplete={onOnboardingComplete} initialMessages={[]} isLoading={false} />;
+        return <Onboarding onComplete={onOnboardingComplete} />;
     }
 
     return (
