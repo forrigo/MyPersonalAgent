@@ -97,7 +97,6 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialMessa
       </div>
       <div className="hidden lg:flex w-1/2 bg-gray-800/50 p-4">
         <div className="w-full h-full rounded-lg bg-gray-900 flex flex-col">
-            {/* FIX: Added the required 'language' prop to the Chat component. */}
             <Chat messages={initialMessages} onSendMessage={handleSendMessage} isLoading={isLoading} isReadOnly={true} language="en-US" />
         </div>
       </div>
