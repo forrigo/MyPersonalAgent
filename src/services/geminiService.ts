@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Permissions, Message, AgendaItem, TodoItem } from '../types';
 
+// Use import.meta.env for Vite environment variables
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 const getLanguageName = (langCode: string): string => {
@@ -79,22 +80,28 @@ export const interactWithAgent = async (
     const context = buildContext(permissions, agenda, todos, googleConnected);
     const languageName = getLanguageName(language);
     
-    const history = messages.slice(0, -1).map(msg => ({ // Send all but the last message
+    const history = messages.map(msg => ({
       role: msg.sender === 'user' ? 'user' : 'model',
       parts: [{ text: msg.text }],
     }));
     
-    const latestUserMessage = {
-      role: 'user',
-      parts: [{ text }]
-    };
-
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [...history, latestUserMessage],
+      contents: [...history], 
       config: {
         systemInstruction: `You are a helpful personal AI assistant. Here is the user's current data context, which you should use to answer questions:\n${context}\nIMPORTANT: You must respond in ${languageName}.`,
       }
     });
     return response.text ?? "I'm sorry, I could not process that. Could you try again?";
+};
+
+export const generateNotificationMessage = async (eventTitle: string, eventTime: string, language: string): Promise<string> => {
+    const languageName = getLanguageName(language);
+    const prompt = `You are a personal AI assistant. Generate a short, friendly, and helpful notification message for the user. The message should remind them of their upcoming event titled "${eventTitle}" scheduled for ${eventTime}. Assume the event is about 15-30 minutes away. Keep it under 150 characters. IMPORTANT: The entire response must be in ${languageName}.`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+    return response.text ?? `Reminder: You have an event at ${eventTime}: ${eventTitle}`;
 };
