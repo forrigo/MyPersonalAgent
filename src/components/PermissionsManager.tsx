@@ -89,5 +89,4 @@ const PermissionRow: React.FC<PermissionRowProps> = ({label, enabled, onToggle, 
           <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-300 ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
     </div>
-)
-)
+);
