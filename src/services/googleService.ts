@@ -1,166 +1,55 @@
-import { gapi } from 'gapi-script';
-import { AgendaItem, GoogleUser, ItemType, TodoItem } from '../types';
-
-// As variáveis são lidas de dentro das funções para garantir que o ambiente Vite as tenha carregado.
-let tokenClient: google.accounts.oauth2.TokenClient | null = null;
-let gapiInited = false;
-let gisInited = false;
+import { AgendaItem, TodoItem, ItemType, GoogleUser } from '../types';
 
 /**
- * Initializes the Google API client and Google Identity Services.
+ * Mocks fetching agenda items from Google Calendar.
+ * In a real application, this would use the Google Calendar API.
  */
-export const initClient = (
-    updateSigninStatus: (user: GoogleUser | null) => void,
-    onAuthSuccess: () => void,
-) => {
-    const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
-    if (!CLIENT_ID || !API_KEY) {
-      console.error("API Keys are not configured in .env file");
-      return;
-    }
-
-    // Init GAPI client
-    gapi.load('client', async () => {
-        await gapi.client.init({
-            apiKey: API_KEY,
-            discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest", "https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest"],
-        });
-        gapiInited = true;
-
-         if (gapi.client.getToken() !== null) {
-            const userInfoResp = await gapi.client.oauth2.userinfo.get();
-            const profile = userInfoResp.result;
-             if(profile.name && profile.email && profile.picture) {
-                updateSigninStatus({
-                    name: profile.name,
-                    email: profile.email,
-                    picture: profile.picture
-                });
-            }
-            onAuthSuccess();
-         }
-    });
-
-    // Init GIS client
-    tokenClient = google.accounts.oauth2.initTokenCodeClient({
-        client_id: CLIENT_ID,
-        scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
-        callback: async (resp) => {
-            if (resp.code && gapiInited) {
-                
-                gapi.client.oauth2.token.fromCode({
-                    code: resp.code,
-                    client_id: CLIENT_ID,
-                    scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
-                }).then(async (token) => {
-                    gapi.client.setToken(token);
-                    
-                    const userInfoResp = await gapi.client.oauth2.userinfo.get();
-                    const profile = userInfoResp.result;
-                    if(profile.name && profile.email && profile.picture) {
-                        updateSigninStatus({
-                            name: profile.name,
-                            email: profile.email,
-                            picture: profile.picture
-                        });
-                    }
-                    onAuthSuccess();
-                });
-            }
-        },
-    });
-    gisInited = true;
+export const getAgendaItems = async (): Promise<AgendaItem[]> => {
+  console.log("Fetching mock agenda items...");
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 500)); 
+  
+  return [
+    { id: 'gcal-1', title: 'Team Standup', time: '10:00 AM', completed: false, type: ItemType.AGENDA },
+    { id: 'gcal-2', title: 'Design Review with Product Team', time: '2:00 PM', completed: false, type: ItemType.AGENDA },
+    { id: 'gcal-3', title: 'One-on-one with Manager', time: '4:30 PM', completed: false, type: ItemType.AGENDA },
+  ];
 };
 
 /**
- *  Sign in the user upon button click.
+ * Mocks fetching to-do items from Google Tasks.
+ * In a real application, this would use the Google Tasks API.
  */
-export const handleAuthClick = () => {
-    if (gapiInited && gisInited && tokenClient) {
-        tokenClient.requestCode();
-    } else {
-        console.error("GAPI or GIS not initialized yet.")
-    }
-}
+export const getTodoItems = async (): Promise<TodoItem[]> => {
+  console.log("Fetching mock todo items...");
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  return [
+    { id: 'gtasks-1', title: 'Finish Q3 report presentation', completed: false, type: ItemType.TODO },
+    { id: 'gtasks-2', title: 'Book dentist appointment', completed: false, type: ItemType.TODO },
+    { id: 'gtasks-3', title: 'Follow up on client emails', completed: false, type: ItemType.TODO },
+  ];
+};
 
 /**
- *  Sign out the user upon button click.
+ * Mocks connecting a Google account.
  */
-export const handleSignoutClick = () => {
-    const token = gapi.client.getToken();
-    if (token !== null) {
-        google.accounts.oauth2.revoke(token.access_token, () => {});
-        gapi.client.setToken(null);
-        window.location.reload(); 
-    }
-}
+export const connectGoogleAccount = async (): Promise<GoogleUser> => {
+    console.log("Simulating Google Account connection...");
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return {
+        name: 'Alex Doe',
+        email: 'alex.doe@example.com',
+        picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=alexdoe`,
+    };
+};
 
 /**
- * Fetches the next 10 events from the user's primary calendar.
+ * Mocks disconnecting a Google account.
  */
-export async function getCalendarEvents(): Promise<AgendaItem[]> {
-  try {
-    const response = await gapi.client.calendar.events.list({
-      'calendarId': 'primary',
-      'timeMin': (new Date()).toISOString(),
-      'showDeleted': false,
-      'singleEvents': true,
-      'maxResults': 10,
-      'orderBy': 'startTime'
-    });
-    
-    const events = response.result.items;
-    if (!events || events.length === 0) {
-      return [];
-    }
-
-    return events.map((event: any) => ({
-        id: event.id,
-        title: event.summary || "No Title",
-        time: event.start?.dateTime ? new Date(event.start.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'All-day',
-        completed: false, 
-        type: ItemType.AGENDA
-    }));
-  } catch (err) {
-    console.error("Error fetching calendar events:", err);
-    return [];
-  }
-}
-
-
-/**
- * Fetches tasks from the user's default task list.
- */
-export async function getTodoTasks(): Promise<TodoItem[]> {
-  try {
-    const taskListsResponse = await gapi.client.tasks.tasklists.list();
-    const taskLists = taskListsResponse.result.items;
-    if (!taskLists || taskLists.length === 0) {
-      return [];
-    }
-    const firstTaskListId = taskLists[0].id;
-    if (!firstTaskListId) return [];
-
-    const response = await gapi.client.tasks.tasks.list({
-      tasklist: firstTaskListId,
-      showCompleted: false,
-    });
-
-    const tasks = response.result.items;
-     if (!tasks || tasks.length === 0) {
-      return [];
-    }
-
-    return tasks.map((task: any) => ({
-      id: task.id,
-      title: task.title || "No Title",
-      completed: task.status === 'completed',
-      type: ItemType.TODO
-    }));
-  } catch (err) {
-    console.error("Error fetching tasks:", err);
-    return [];
-  }
-}
+export const disconnectGoogleAccount = async (): Promise<void> => {
+    console.log("Simulating Google Account disconnection...");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return;
+};
