@@ -1,7 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
-import type { Permissions, Message, AgendaItem, TodoItem } from '../types';
+// FIX: Corrected import path to be relative to src/services directory.
+import type { Permissions, Message, AgendaItem, TodoItem } from '../../types';
 
-// Use API key from environment variables as per coding guidelines.
+// FIX: API key must be obtained from process.env.API_KEY per coding guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 const getLanguageName = (langCode: string): string => {
@@ -21,8 +22,7 @@ export const getOnboardingMessage = async (language: string): Promise<string> =>
       model: 'gemini-2.5-flash',
       contents: `Generate a friendly and welcoming message for a user who is opening a personal AI assistant app for the first time. The message should be brief, introduce yourself as their personal AI agent, and encourage them to configure permissions to get started. IMPORTANT: The response must be written in ${languageName}.`,
     });
-    // FIX: Per coding guidelines, directly access the .text property from the response.
-    return response.text;
+    return response.text ?? "Welcome! Let's get started.";
 };
 
 const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoItems: TodoItem[], googleConnected: boolean): string => {
@@ -38,7 +38,7 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
         context += "\n## Today's Agenda\n";
         if (agendaItems.length > 0) {
             agendaItems.forEach(item => {
-                context += `- ${item.time ? item.time + ' ' : ''}${item.title}\n`;
+                context += `- ${item.time} ${item.title}\n`;
             });
         } else {
             context += "No agenda items for today.\n";
@@ -81,8 +81,7 @@ export const getInitialAgentMessage = async (permissions: Permissions, agenda: A
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    // FIX: Per coding guidelines, directly access the .text property from the response.
-    return response.text;
+    return response.text ?? "How can I help you today?";
 };
 
 /**
@@ -107,13 +106,12 @@ export const interactWithAgent = async (
     
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: history,
+      contents: [...history], // History now includes the latest message
       config: {
         systemInstruction: `You are a helpful personal AI assistant. Here is the user's current data context, which you should use to answer questions:\n${context}\nIMPORTANT: You must respond in ${languageName}.`,
       }
     });
-    // FIX: Per coding guidelines, directly access the .text property from the response.
-    return response.text;
+    return response.text ?? "I'm sorry, I could not process that. Could you try again?";
 };
 
 /**
@@ -127,6 +125,5 @@ export const generateNotificationMessage = async (eventTitle: string, eventTime:
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
-    // FIX: Per coding guidelines, directly access the .text property from the response.
-    return response.text;
+    return response.text ?? `Reminder: You have an event at ${eventTime}: ${eventTitle}`;
 };
