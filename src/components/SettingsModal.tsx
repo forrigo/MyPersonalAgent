@@ -1,7 +1,7 @@
 import React from 'react';
 import { PermissionsManager } from './PermissionsManager';
 import { AccountManager } from './AccountManager';
-import { Permissions } from '../types';
+import { Permissions, GoogleUser } from '../types';
 import { XIcon, GlobeAltIcon } from './Icons';
 
 interface SettingsModalProps {
@@ -14,6 +14,7 @@ interface SettingsModalProps {
   onDisconnectGoogle: () => void;
   language: string;
   setLanguage: (lang: string) => void;
+  googleUser: GoogleUser | null;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ 
@@ -26,6 +27,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onDisconnectGoogle,
     language,
     setLanguage,
+    googleUser
 }) => {
   if (!isOpen) return null;
 
@@ -56,6 +58,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             isConnected={isGoogleConnected}
             onConnect={onConnectGoogle}
             onDisconnect={onDisconnectGoogle}
+            googleUser={googleUser}
         />
         
         <div className="border-t border-gray-700 -mx-6"></div>
