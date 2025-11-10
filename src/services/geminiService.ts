@@ -1,8 +1,7 @@
-
 import { GoogleGenAI } from "@google/genai";
-import type { Permissions, MockData, Message } from '../types';
+import type { Permissions, Message, AgendaItem, TodoItem } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY! });
 
 const getLanguageName = (langCode: string): string => {
     const map: { [key: string]: string } = {
@@ -21,10 +20,10 @@ export const getOnboardingMessage = async (language: string): Promise<string> =>
       model: 'gemini-2.5-flash',
       contents: `Generate a friendly and welcoming message for a user who is opening a personal AI assistant app for the first time. The message should be brief, introduce yourself as their personal AI agent, and encourage them to configure permissions to get started. IMPORTANT: The response must be written in ${languageName}.`,
     });
-    return response.text;
+    return response.text ?? "Welcome! Let's get started.";
 };
 
-const buildContext = (permissions: Permissions, mockData: MockData, googleConnected: boolean): string => {
+const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoItems: TodoItem[], googleConnected: boolean): string => {
     if (!googleConnected) {
         return "No data is available. The user has not connected their account yet. Inform the user that they need to connect their account in settings to get started.";
     }
@@ -35,9 +34,9 @@ const buildContext = (permissions: Permissions, mockData: MockData, googleConnec
     if (permissions.agenda) {
         hasData = true;
         context += "\n## Today's Agenda\n";
-        if (mockData.agenda.length > 0) {
-            mockData.agenda.forEach(item => {
-                context += `- ${item.time} ${item.title} (${item.completed ? 'completed' : 'pending'})\n`;
+        if (agendaItems.length > 0) {
+            agendaItems.forEach(item => {
+                context += `- ${item.time} ${item.title}\n`;
             });
         } else {
             context += "No agenda items for today.\n";
@@ -46,27 +45,19 @@ const buildContext = (permissions: Permissions, mockData: MockData, googleConnec
 
     if (permissions.todos) {
         hasData = true;
-        context += "\n## To-Do List\n";
-        if (mockData.todos.length > 0) {
-            mockData.todos.forEach(item => {
-                context += `- ${item.title} (${item.completed ? 'completed' : 'pending'})\n`;
+        context += "\n## To-Do List (Pending)\n";
+        if (todoItems.length > 0) {
+            todoItems.forEach(item => {
+                context += `- ${item.title}\n`;
             });
         } else {
-             context += "No to-do items.\n";
+             context += "No pending to-do items.\n";
         }
     }
 
     if (permissions.email) {
-        hasData = true;
-        const unreadEmails = mockData.emails.filter(e => !e.read);
-        context += `\n## Emails (${unreadEmails.length} unread)\n`;
-        if (unreadEmails.length > 0) {
-             unreadEmails.forEach(email => {
-                context += `- From: ${email.sender}, Subject: ${email.subject}\n`;
-            });
-        } else {
-             context += "No unread emails.\n";
-        }
+        context += "\n## Emails\n";
+        context += "Email access is enabled, but email data is not yet available in this context. You can inform the user you can see they have granted permission, but cannot yet read emails.\n";
     }
 
     if (!hasData) {
@@ -79,8 +70,8 @@ const buildContext = (permissions: Permissions, mockData: MockData, googleConnec
 /**
  * Generates the first message after the user connects their account.
  */
-export const getInitialAgentMessage = async (permissions: Permissions, mockData: MockData, googleConnected: boolean, language: string): Promise<string> => {
-    const context = buildContext(permissions, mockData, googleConnected);
+export const getInitialAgentMessage = async (permissions: Permissions, agenda: AgendaItem[], todos: TodoItem[], googleConnected: boolean, language: string): Promise<string> => {
+    const context = buildContext(permissions, agenda, todos, googleConnected);
     const languageName = getLanguageName(language);
     const prompt = `You are a personal AI assistant. The user has just connected their account. Based on their data below, provide a helpful and proactive summary of their day and ask how you can help. Be friendly and concise. IMPORTANT: The entire response must be in ${languageName}.\n\n${context}`;
 
@@ -88,7 +79,7 @@ export const getInitialAgentMessage = async (permissions: Permissions, mockData:
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text;
+    return response.text ?? "How can I help you today?";
 };
 
 /**
@@ -97,12 +88,13 @@ export const getInitialAgentMessage = async (permissions: Permissions, mockData:
 export const interactWithAgent = async (
   text: string,
   permissions: Permissions, 
-  mockData: MockData, 
+  agenda: AgendaItem[], 
+  todos: TodoItem[],
   messages: Message[],
   googleConnected: boolean,
   language: string
 ): Promise<string> => {
-    const context = buildContext(permissions, mockData, googleConnected);
+    const context = buildContext(permissions, agenda, todos, googleConnected);
     const languageName = getLanguageName(language);
     
     const history = messages.map(msg => ({
@@ -110,15 +102,14 @@ export const interactWithAgent = async (
       parts: [{ text: msg.text }],
     }));
     
-    // FIX: Pass the full conversation history, including the latest user message, to the model.
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: history,
+      contents: [...history], 
       config: {
         systemInstruction: `You are a helpful personal AI assistant. Here is the user's current data context, which you should use to answer questions:\n${context}\nIMPORTANT: You must respond in ${languageName}.`,
       }
     });
-    return response.text;
+    return response.text ?? "I'm sorry, I could not process that. Could you try again?";
 };
 
 /**
@@ -132,5 +123,5 @@ export const generateNotificationMessage = async (eventTitle: string, eventTime:
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
-    return response.text;
+    return response.text ?? `Reminder: You have an event at ${eventTime}: ${eventTitle}`;
 };
