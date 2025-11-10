@@ -2,41 +2,40 @@ import { gapi } from 'gapi-script';
 import { AgendaItem, TodoItem, ItemType, GoogleUser } from '../types';
 
 let tokenClient: google.accounts.oauth2.TokenClient | null = null;
+let onAuthUpdate: (user: GoogleUser | null) => void = () => {};
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const GOOGLE_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; // Using Gemini key for GAPI as well, can be separated if needed
+const GOOGLE_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const DISCOVERY_DOCS = [
     "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
     "https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest",
 ];
-const SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly";
+const SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
 
-export const initClient = async (updateAuthStatus: (user: GoogleUser | null) => void) => {
-    await new Promise((resolve, reject) => {
-        gapi.load('client', async () => {
-            try {
-                await gapi.client.init({
-                    apiKey: GOOGLE_API_KEY,
-                    discoveryDocs: DISCOVERY_DOCS,
-                });
-                resolve(undefined);
-            } catch (error) {
-                console.error("Error initializing gapi client:", error);
-                reject(error);
-            }
-        });
-    });
+export const initClient = (updateAuthStatus: (user: GoogleUser | null) => void) => {
+    onAuthUpdate = updateAuthStatus;
+    gapi.load('client', async () => {
+        try {
+            await gapi.client.init({
+                apiKey: GOOGLE_API_KEY,
+                discoveryDocs: DISCOVERY_DOCS,
+            });
 
-    tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: SCOPES,
-        callback: (tokenResponse) => {
-            if (tokenResponse && tokenResponse.access_token) {
-                 gapi.client.setToken({ access_token: tokenResponse.access_token });
-                 getUserProfile().then(user => updateAuthStatus(user));
-            }
-        },
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: SCOPES,
+                callback: async (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        gapi.client.setToken({ access_token: tokenResponse.access_token });
+                        const userProfile = await getUserProfile();
+                        onAuthUpdate(userProfile);
+                    }
+                },
+            });
+        } catch (error) {
+            console.error("Error initializing GAPI client:", error);
+        }
     });
 };
 
@@ -57,10 +56,9 @@ const getUserProfile = async (): Promise<GoogleUser | null> => {
     }
 }
 
-
 export const signIn = () => {
     if (tokenClient) {
-        tokenClient.requestAccessToken();
+        tokenClient.requestAccessToken({ prompt: 'consent' });
     } else {
         console.error("Token client not initialized.");
     }
@@ -68,10 +66,14 @@ export const signIn = () => {
 
 export const signOut = () => {
     const token = gapi.client.getToken();
-    if (token) {
+    if (token && token.access_token) {
         google.accounts.oauth2.revoke(token.access_token, () => {
             gapi.client.setToken(null);
+            onAuthUpdate(null);
         });
+    } else {
+         gapi.client.setToken(null);
+         onAuthUpdate(null);
     }
 };
 
