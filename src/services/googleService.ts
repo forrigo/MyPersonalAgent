@@ -4,28 +4,34 @@ import { AgendaItem, TodoItem, ItemType, GoogleUser } from '../types';
 let tokenClient: google.accounts.oauth2.TokenClient | null = null;
 let onAuthUpdate: (user: GoogleUser | null) => void = () => {};
 
-// Use import.meta.env for Vite environment variables
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const GOOGLE_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
-const DISCOVERY_DOCS = [
-    "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
-    "https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest",
-];
-const SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
+const getEnvVar = (key: string): string => {
+    const value = import.meta.env[key];
+    if (!value) {
+        console.error(`${key} is not set in the environment variables. Please check your .env.local file and Vercel project settings.`);
+        // Return a placeholder to avoid crashing, but functionality will be broken.
+        return 'MISSING_ENV_VAR';
+    }
+    return value;
+}
 
 export const initClient = (updateAuthStatus: (user: GoogleUser | null) => void) => {
     onAuthUpdate = updateAuthStatus;
+    const GOOGLE_CLIENT_ID = getEnvVar('VITE_GOOGLE_CLIENT_ID');
+    const GOOGLE_API_KEY = getEnvVar('VITE_GEMINI_API_KEY');
+
     gapi.load('client', async () => {
         try {
             await gapi.client.init({
                 apiKey: GOOGLE_API_KEY,
-                discoveryDocs: DISCOVERY_DOCS,
+                discoveryDocs: [
+                    "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
+                    "https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest",
+                ],
             });
 
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: GOOGLE_CLIENT_ID,
-                scope: SCOPES,
+                scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
                 callback: async (tokenResponse) => {
                     if (tokenResponse && tokenResponse.access_token) {
                         gapi.client.setToken({ access_token: tokenResponse.access_token });
