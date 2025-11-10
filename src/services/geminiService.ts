@@ -1,7 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Permissions, Message, AgendaItem, TodoItem } from '../types';
 
-// Use import.meta.env for Vite environment variables
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 const getLanguageName = (langCode: string): string => {
@@ -69,11 +68,10 @@ export const getInitialAgentMessage = async (permissions: Permissions, agenda: A
 };
 
 export const interactWithAgent = async (
-  text: string,
+  messages: Message[],
   permissions: Permissions, 
   agenda: AgendaItem[], 
   todos: TodoItem[],
-  messages: Message[],
   googleConnected: boolean,
   language: string
 ): Promise<string> => {
@@ -105,3 +103,4 @@ export const generateNotificationMessage = async (eventTitle: string, eventTime:
     });
     return response.text ?? `Reminder: You have an event at ${eventTime}: ${eventTitle}`;
 };
+
