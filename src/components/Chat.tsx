@@ -63,7 +63,6 @@ export const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, isLoading, 
   };
 
   useEffect(() => {
-    // A slight delay ensures the DOM has updated before scrolling.
     setTimeout(() => scrollToBottom('auto'), 100);
   }, [messages]);
 
