@@ -1,8 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
-import type { Permissions, Message, AgendaItem, TodoItem } from '../../types';
+import type { Permissions, Message, AgendaItem, TodoItem } from '../types';
 
-// FIX: API key must be obtained from process.env.API_KEY per coding guidelines.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 const getLanguageName = (langCode: string): string => {
     const map: { [key: string]: string } = {
@@ -12,15 +11,6 @@ const getLanguageName = (langCode: string): string => {
     return map[langCode] || 'English';
 }
 
-export const getOnboardingMessage = async (language: string): Promise<string> => {
-    const languageName = getLanguageName(language);
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Generate a friendly and welcoming message for a user who is opening a personal AI assistant app for the first time. The message should be brief, introduce yourself as their personal AI agent, and encourage them to configure permissions to get started. IMPORTANT: The response must be written in ${languageName}.`,
-    });
-    return response.text ?? "Welcome! Let's get started.";
-};
-
 const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoItems: TodoItem[], googleConnected: boolean): string => {
     if (!googleConnected) {
         return "No data is available. The user has not connected their account yet. Inform the user that they need to connect their account in settings to get started.";
@@ -29,8 +19,7 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
     let context = "This is the user's current data based on the permissions they granted. Use this to inform your responses.\n";
     let hasData = false;
     
-    // FIX: Simplified check for permission.
-    if (permissions.agenda) {
+    if (permissions.agenda && agendaItems) {
         hasData = true;
         context += "\n## Today's Agenda\n";
         if (agendaItems.length > 0) {
@@ -42,8 +31,7 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
         }
     }
 
-    // FIX: Simplified check for permission.
-    if (permissions.todos) {
+    if (permissions.todos && todoItems) {
         hasData = true;
         context += "\n## To-Do List (Pending)\n";
         if (todoItems.length > 0) {
@@ -54,8 +42,7 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
              context += "No pending to-do items.\n";
         }
     }
-    
-    // FIX: Added email permission context for consistency.
+
     if (permissions.email) {
         context += "\n## Emails\n";
         context += "Email access is enabled, but email data is not yet available in this context. You can inform the user you can see they have granted permission, but cannot yet read emails.\n";
@@ -71,7 +58,7 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
 export const getInitialAgentMessage = async (permissions: Permissions, agenda: AgendaItem[], todos: TodoItem[], googleConnected: boolean, language: string): Promise<string> => {
     const context = buildContext(permissions, agenda, todos, googleConnected);
     const languageName = getLanguageName(language);
-    const prompt = `You are a personal AI assistant. The user has just connected their account. Based on their data below, provide a helpful and proactive summary of their day and ask how you can help. Be friendly and concise. IMPORTANT: The entire response must be in ${languageName}.\n\n${context}`;
+    const prompt = `You are a personal AI assistant. The user has just opened the app. Based on their data below, provide a helpful and proactive summary of their day and ask how you can help. Be friendly and concise. IMPORTANT: The entire response must be in ${languageName}.\n\n${context}`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -81,6 +68,7 @@ export const getInitialAgentMessage = async (permissions: Permissions, agenda: A
 };
 
 export const interactWithAgent = async (
+  text: string,
   permissions: Permissions, 
   agenda: AgendaItem[], 
   todos: TodoItem[],
@@ -91,14 +79,19 @@ export const interactWithAgent = async (
     const context = buildContext(permissions, agenda, todos, googleConnected);
     const languageName = getLanguageName(language);
     
-    const history = messages.map(msg => ({
+    const history = messages.slice(0, -1).map(msg => ({ // Send all but the last message
       role: msg.sender === 'user' ? 'user' : 'model',
       parts: [{ text: msg.text }],
     }));
     
+    const latestUserMessage = {
+      role: 'user',
+      parts: [{ text }]
+    };
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [...history],
+      contents: [...history, latestUserMessage],
       config: {
         systemInstruction: `You are a helpful personal AI assistant. Here is the user's current data context, which you should use to answer questions:\n${context}\nIMPORTANT: You must respond in ${languageName}.`,
       }
