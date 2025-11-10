@@ -7,7 +7,7 @@ declare namespace google {
             function revoke(token: string, callback: () => void): void;
 
             interface TokenClient {
-                requestAccessToken: () => void;
+                requestAccessToken: (overrideConfig?: { prompt: string }) => void;
             }
 
             interface TokenClientConfig {
