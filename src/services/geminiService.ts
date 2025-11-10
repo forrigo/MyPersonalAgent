@@ -1,8 +1,8 @@
+
 import { GoogleGenAI } from "@google/genai";
 import type { Permissions, MockData, Message } from '../types';
 
-// NOTE: This uses the VITE_ environment variable prefix, which is crucial for client-side code in Vite.
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const getLanguageName = (langCode: string): string => {
     const map: { [key: string]: string } = {
@@ -21,7 +21,7 @@ export const getOnboardingMessage = async (language: string): Promise<string> =>
       model: 'gemini-2.5-flash',
       contents: `Generate a friendly and welcoming message for a user who is opening a personal AI assistant app for the first time. The message should be brief, introduce yourself as their personal AI agent, and encourage them to configure permissions to get started. IMPORTANT: The response must be written in ${languageName}.`,
     });
-    return response.text ?? '';
+    return response.text;
 };
 
 const buildContext = (permissions: Permissions, mockData: MockData, googleConnected: boolean): string => {
@@ -88,7 +88,7 @@ export const getInitialAgentMessage = async (permissions: Permissions, mockData:
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text ?? '';
+    return response.text;
 };
 
 /**
@@ -110,14 +110,15 @@ export const interactWithAgent = async (
       parts: [{ text: msg.text }],
     }));
     
+    // FIX: Pass the full conversation history, including the latest user message, to the model.
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [...history, { role: 'user', parts: [{ text }] }],
+      contents: history,
       config: {
         systemInstruction: `You are a helpful personal AI assistant. Here is the user's current data context, which you should use to answer questions:\n${context}\nIMPORTANT: You must respond in ${languageName}.`,
       }
     });
-    return response.text ?? '';
+    return response.text;
 };
 
 /**
@@ -131,5 +132,5 @@ export const generateNotificationMessage = async (eventTitle: string, eventTime:
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
-    return response.text ?? '';
+    return response.text;
 };
