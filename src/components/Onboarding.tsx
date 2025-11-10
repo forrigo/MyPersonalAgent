@@ -5,8 +5,6 @@ import { CheckCircleIcon, BookOpenIcon, InboxIcon, BellIcon } from './Icons';
 
 interface OnboardingProps {
   onComplete: (permissions: Permissions) => void;
-  initialMessages: Message[];
-  isLoading: boolean;
 }
 
 const ONBOARDING_MESSAGE: Message[] = [{
@@ -65,21 +63,21 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               <PermissionToggle 
                 icon={<BookOpenIcon className="w-6 h-6 text-sky-400" />}
                 label="Agenda Access"
-                description="Allow me to read and manage your calendar events."
+                description="Allow me to read your calendar events."
                 enabled={permissions.agenda}
                 onToggle={() => togglePermission('agenda')}
               />
               <PermissionToggle 
                 icon={<CheckCircleIcon className="w-6 h-6 text-emerald-400" />}
                 label="To-Do List Access"
-                description="Let me help you track and complete your tasks."
+                description="Let me help you track your tasks."
                 enabled={permissions.todos}
                 onToggle={() => togglePermission('todos')}
               />
               <PermissionToggle 
                 icon={<InboxIcon className="w-6 h-6 text-amber-400" />}
                 label="Email Access"
-                description="I can summarize emails and highlight important ones. (Read-only)"
+                description="I can summarize important emails. (Read-only)"
                 enabled={permissions.email}
                 onToggle={() => togglePermission('email')}
               />
