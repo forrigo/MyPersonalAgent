@@ -1,15 +1,15 @@
 import React from 'react';
-import { AgendaItem, ItemType } from '../types';
+import { AgendaItem, ItemType, TodoItem } from '../types';
 import { CalendarIcon, SettingsIcon } from './Icons';
 
 interface AgendaProps {
-  items: AgendaItem[];
-  onToggleCompletion: (id: number) => void;
+  items: (AgendaItem | TodoItem)[];
+  isLoading: boolean;
   isAccountConnected: boolean;
   onOpenSettings: () => void;
 }
 
-export const Agenda: React.FC<AgendaProps> = ({ items, onToggleCompletion, isAccountConnected, onOpenSettings }) => {
+export const Agenda: React.FC<AgendaProps> = ({ items, isLoading, isAccountConnected, onOpenSettings }) => {
   const hasItems = items.length > 0;
   
   const EmptyState = () => (
@@ -28,11 +28,25 @@ export const Agenda: React.FC<AgendaProps> = ({ items, onToggleCompletion, isAcc
         </>
       ) : (
         <>
-            <p>No agenda or to-do items to display.</p>
-            <p className="text-sm">Grant permissions in settings to see your items here.</p>
+            <p className="text-gray-400">No upcoming agenda or to-do items.</p>
+            <p className="text-sm mt-1">You're all clear!</p>
         </>
       )}
     </div>
+  );
+
+  const LoadingState = () => (
+     <div className="space-y-3">
+        {[...Array(3)].map((_, i) => (
+             <div key={i} className="flex items-center bg-gray-700/40 p-3 rounded-lg animate-pulse">
+                <div className="h-5 w-5 rounded bg-gray-600"></div>
+                <div className="ml-4 flex-grow space-y-2">
+                    <div className="h-4 w-3/4 rounded bg-gray-600"></div>
+                    <div className="h-3 w-1/4 rounded bg-gray-600"></div>
+                </div>
+            </div>
+        ))}
+     </div>
   );
 
   return (
@@ -42,32 +56,28 @@ export const Agenda: React.FC<AgendaProps> = ({ items, onToggleCompletion, isAcc
         <h2 className="text-lg font-semibold text-gray-200">Today's Focus</h2>
       </div>
       <div className="overflow-y-auto pr-2 -mr-2">
-        {hasItems ? (
-          <ul className="space-y-3">
-            {items.map(item => (
-              <li key={item.id} className="flex items-center bg-gray-700/40 p-3 rounded-lg hover:bg-gray-700/70 transition-colors duration-200">
-                <input
-                  type="checkbox"
-                  checked={item.completed}
-                  onChange={() => onToggleCompletion(item.id)}
-                  className="h-5 w-5 rounded border-gray-500 text-indigo-500 focus:ring-indigo-500 bg-gray-800 cursor-pointer"
-                />
-                <div className="ml-4 flex-grow">
-                  <p className={`text-gray-200 ${item.completed ? 'line-through text-gray-500' : ''}`}>{item.title}</p>
-                   {item.type === ItemType.AGENDA && item.time && (
-                     <p className={`text-sm ${item.completed ? 'text-gray-600' : 'text-gray-400'}`}>{item.time}</p>
-                   )}
-                </div>
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                  item.type === ItemType.AGENDA ? 'bg-sky-900/50 text-sky-300' : 'bg-emerald-900/50 text-emerald-300'
-                }`}>
-                  {item.type}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState />
+        {isLoading ? <LoadingState /> : (
+            hasItems ? (
+              <ul className="space-y-3">
+                {items.map(item => (
+                  <li key={item.id} className="flex items-center bg-gray-700/40 p-3 rounded-lg">
+                    <div className="flex-grow">
+                      <p className="text-gray-200">{item.title}</p>
+                       {item.type === ItemType.AGENDA && item.time && (
+                         <p className="text-sm text-gray-400">{item.time}</p>
+                       )}
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                      item.type === ItemType.AGENDA ? 'bg-sky-900/50 text-sky-300' : 'bg-emerald-900/50 text-emerald-300'
+                    }`}>
+                      {item.type}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState />
+            )
         )}
       </div>
     </div>
