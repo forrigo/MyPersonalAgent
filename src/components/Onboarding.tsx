@@ -9,7 +9,13 @@ interface OnboardingProps {
   isLoading: boolean;
 }
 
-export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialMessages, isLoading }) => {
+const ONBOARDING_MESSAGE: Message[] = [{
+    id: 1,
+    sender: 'agent',
+    text: "Welcome! I'm your personal AI assistant. To help you best, let's set up some permissions. You can change these at any time."
+}];
+
+export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [permissions, setPermissions] = useState<Permissions>({ agenda: true, todos: true, email: false, notifications: true });
   const [step, setStep] = useState(0);
 
@@ -26,7 +32,6 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialMessa
   };
   
   const handleSendMessage = async (text: string) => {
-    // Onboarding chat is not interactive with the LLM
     console.log("Message sent during onboarding:", text);
   };
 
@@ -97,7 +102,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialMessa
       </div>
       <div className="hidden lg:flex w-1/2 bg-gray-800/50 p-4">
         <div className="w-full h-full rounded-lg bg-gray-900 flex flex-col">
-            <Chat messages={initialMessages} onSendMessage={handleSendMessage} isLoading={isLoading} isReadOnly={true} language="en-US" />
+            <Chat messages={ONBOARDING_MESSAGE} onSendMessage={handleSendMessage} isLoading={false} isReadOnly={true} language="en-US" />
         </div>
       </div>
     </div>
