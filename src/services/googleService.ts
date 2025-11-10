@@ -1,41 +1,124 @@
+import { gapi } from 'gapi-script';
 import { AgendaItem, TodoItem, ItemType, GoogleUser } from '../types';
 
-const MOCK_AGENDA: AgendaItem[] = [
-  { id: '1', title: 'Team Standup', time: '09:00 AM', type: ItemType.AGENDA },
-  { id: '2', title: 'Design Review', time: '11:30 AM', type: ItemType.AGENDA },
-  { id: '3', title: 'Lunch with Sarah', time: '01:00 PM', type: ItemType.AGENDA },
+let tokenClient: google.accounts.oauth2.TokenClient | null = null;
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const GOOGLE_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; // Using Gemini key for GAPI as well, can be separated if needed
+
+const DISCOVERY_DOCS = [
+    "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
+    "https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest",
 ];
+const SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly";
 
-const MOCK_TODOS: TodoItem[] = [
-  { id: '4', title: 'Finalize Q3 report', type: ItemType.TODO },
-  { id: '5', title: 'Book flight for conference', type: ItemType.TODO },
-];
+export const initClient = async (updateAuthStatus: (user: GoogleUser | null) => void) => {
+    await new Promise((resolve, reject) => {
+        gapi.load('client', async () => {
+            try {
+                await gapi.client.init({
+                    apiKey: GOOGLE_API_KEY,
+                    discoveryDocs: DISCOVERY_DOCS,
+                });
+                resolve(undefined);
+            } catch (error) {
+                console.error("Error initializing gapi client:", error);
+                reject(error);
+            }
+        });
+    });
 
-const MOCK_USER: GoogleUser = {
-    name: 'Alex Doe',
-    email: 'alex.doe@example.com',
-    picture: 'https://i.pravatar.cc/150?u=alexdoe',
-}
-
-export const connectGoogleAccount = async (): Promise<GoogleUser> => {
-  console.log("Mocking Google Account connection...");
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return MOCK_USER;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SCOPES,
+        callback: (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+                 gapi.client.setToken({ access_token: tokenResponse.access_token });
+                 getUserProfile().then(user => updateAuthStatus(user));
+            }
+        },
+    });
 };
 
-export const disconnectGoogleAccount = async (): Promise<void> => {
-  console.log("Mocking Google Account disconnection...");
-  await new Promise(resolve => setTimeout(resolve, 200));
+const getUserProfile = async (): Promise<GoogleUser | null> => {
+    try {
+        const response = await gapi.client.request({
+            path: 'https://www.googleapis.com/oauth2/v2/userinfo',
+        });
+        const user = response.result as any;
+        return {
+            name: user.name,
+            email: user.email,
+            picture: user.picture,
+        };
+    } catch (error) {
+        console.error("Error fetching user profile", error);
+        return null;
+    }
+}
+
+
+export const signIn = () => {
+    if (tokenClient) {
+        tokenClient.requestAccessToken();
+    } else {
+        console.error("Token client not initialized.");
+    }
+};
+
+export const signOut = () => {
+    const token = gapi.client.getToken();
+    if (token) {
+        google.accounts.oauth2.revoke(token.access_token, () => {
+            gapi.client.setToken(null);
+        });
+    }
 };
 
 export const getAgendaItems = async (): Promise<AgendaItem[]> => {
-  console.log("Fetching mock agenda items...");
-  await new Promise(resolve => setTimeout(resolve, 800));
-  return MOCK_AGENDA;
+    try {
+        const response = await gapi.client.calendar.events.list({
+            'calendarId': 'primary',
+            'timeMin': (new Date()).toISOString(),
+            'showDeleted': false,
+            'singleEvents': true,
+            'maxResults': 10,
+            'orderBy': 'startTime'
+        });
+
+        return (response.result.items || []).map((event: any) => ({
+            id: event.id,
+            title: event.summary,
+            time: event.start.dateTime ? new Date(event.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'All Day',
+            type: ItemType.AGENDA,
+        }));
+    } catch (error) {
+        console.error("Error fetching calendar events:", error);
+        return [];
+    }
 };
 
 export const getTodoItems = async (): Promise<TodoItem[]> => {
-  console.log("Fetching mock to-do items...");
-  await new Promise(resolve => setTimeout(resolve, 600));
-  return MOCK_TODOS;
+    try {
+        const taskListsResponse = await gapi.client.tasks.tasklists.list();
+        const taskLists = taskListsResponse.result.items;
+        if (!taskLists || taskLists.length === 0) return [];
+        
+        const primaryTaskListId = taskLists[0].id;
+        if (!primaryTaskListId) return [];
+        
+        const tasksResponse = await gapi.client.tasks.tasks.list({
+            tasklist: primaryTaskListId,
+            showCompleted: false,
+        });
+
+        return (tasksResponse.result.items || []).map((task: any) => ({
+            id: task.id,
+            title: task.title,
+            type: ItemType.TODO,
+        }));
+    } catch (error) {
+        console.error("Error fetching tasks:", error);
+        return [];
+    }
 };
