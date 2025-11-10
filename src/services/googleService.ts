@@ -4,6 +4,7 @@ import { AgendaItem, TodoItem, ItemType, GoogleUser } from '../types';
 let tokenClient: google.accounts.oauth2.TokenClient | null = null;
 let onAuthUpdate: (user: GoogleUser | null) => void = () => {};
 
+// Use import.meta.env for Vite environment variables
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const GOOGLE_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -79,7 +80,7 @@ export const signOut = () => {
 
 export const getAgendaItems = async (): Promise<AgendaItem[]> => {
     try {
-        const response = await gapi.client.calendar.events.list({
+        const response = await (gapi.client as any).calendar.events.list({
             'calendarId': 'primary',
             'timeMin': (new Date()).toISOString(),
             'showDeleted': false,
@@ -88,7 +89,7 @@ export const getAgendaItems = async (): Promise<AgendaItem[]> => {
             'orderBy': 'startTime'
         });
 
-        return (response.result.items || []).map((event: any) => ({
+        return (response.result.items || []).map((event: any): AgendaItem => ({
             id: event.id,
             title: event.summary,
             time: event.start.dateTime ? new Date(event.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'All Day',
@@ -102,19 +103,19 @@ export const getAgendaItems = async (): Promise<AgendaItem[]> => {
 
 export const getTodoItems = async (): Promise<TodoItem[]> => {
     try {
-        const taskListsResponse = await gapi.client.tasks.tasklists.list();
+        const taskListsResponse = await (gapi.client as any).tasks.tasklists.list();
         const taskLists = taskListsResponse.result.items;
         if (!taskLists || taskLists.length === 0) return [];
         
         const primaryTaskListId = taskLists[0].id;
         if (!primaryTaskListId) return [];
         
-        const tasksResponse = await gapi.client.tasks.tasks.list({
+        const tasksResponse = await (gapi.client as any).tasks.tasks.list({
             tasklist: primaryTaskListId,
             showCompleted: false,
         });
 
-        return (tasksResponse.result.items || []).map((task: any) => ({
+        return (tasksResponse.result.items || []).map((task: any): TodoItem => ({
             id: task.id,
             title: task.title,
             type: ItemType.TODO,
