@@ -1,33 +1,36 @@
-
-export interface Permissions {
-  agenda: boolean;
-  todos: boolean;
-  email: boolean;
-  notifications: boolean;
-}
-
 export enum ItemType {
-  AGENDA = 'Agenda',
-  TODO = 'To-Do',
-}
-
-export interface AgendaItem {
-  id: number;
-  type: ItemType;
-  title: string;
-  time?: string;
-  completed: boolean;
+    AGENDA = 'AGENDA',
+    TODO = 'TODO',
 }
 
 export interface Message {
-  id: number;
-  text: string;
-  sender: 'user' | 'agent';
-  timestamp: string;
+    id: number;
+    text: string;
+    sender: 'user' | 'agent';
 }
 
-export interface MockData {
-    agenda: AgendaItem[];
-    todos: AgendaItem[];
-    emails: { id: number; subject: string; sender: string; snippet: string; read: boolean }[];
+export interface Permissions {
+    agenda: boolean;
+    todos: boolean;
+    email: boolean;
+    notifications: boolean;
+}
+
+export interface AgendaItem {
+    id: string;
+    title: string;
+    time?: string;
+    type: ItemType.AGENDA;
+}
+
+export interface TodoItem {
+    id: string;
+    title: string;
+    type: ItemType.TODO;
+}
+
+export interface GoogleUser {
+    name: string;
+    email: string;
+    picture: string;
 }
