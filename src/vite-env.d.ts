@@ -2,6 +2,11 @@
 
 declare namespace google {
     namespace accounts {
+        namespace id {
+            function initialize(config: any): void;
+            function renderButton(element: HTMLElement, options: any): void;
+            function prompt(notification?: (notification: any) => void): void;
+        }
         namespace oauth2 {
             function initTokenClient(config: TokenClientConfig): TokenClient;
             function revoke(token: string, callback: () => void): void;
