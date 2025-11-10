@@ -46,3 +46,4 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onToggleSidebar,
     </header>
   );
 };
+
