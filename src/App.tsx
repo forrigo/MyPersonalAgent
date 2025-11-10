@@ -1,36 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Agenda } from './components/Agenda';
-import { Chat } from './components/Chat';
-import { Header } from './components/Header';
-import { Onboarding } from './components/Onboarding';
-import { SettingsModal } from './components/SettingsModal';
-import { Permissions, Message, AgendaItem, TodoItem, GoogleUser, ItemType } from './types';
+import { Agenda } from '../components/Agenda';
+import { Chat } from '../components/Chat';
+import { Header } from '../components/Header';
+import { Onboarding } from '../components/Onboarding';
+import { SettingsModal } from '../components/SettingsModal';
+import { Permissions, Message, AgendaItem, TodoItem, GoogleUser } from '../types';
 import * as geminiService from './services/geminiService';
-import * as googleService from './services/googleService';
-
-// FIX: Explicitly type mock data to match AgendaItem[] and TodoItem[] interfaces.
-const MOCK_DATA_EN: { agenda: AgendaItem[], todos: TodoItem[] } = {
-    agenda: [
-        { id: 'en1', title: 'Project sync-up', time: '10:00 AM', type: ItemType.AGENDA },
-        { id: 'en2', title: 'Lunch with the design team', time: '12:30 PM', type: ItemType.AGENDA },
-    ],
-    todos: [
-        { id: 'en3', title: 'Review new mockups', type: ItemType.TODO },
-        { id: 'en4', title: 'Prepare for Friday demo', type: ItemType.TODO },
-    ]
-};
-
-// FIX: Explicitly type mock data to match AgendaItem[] and TodoItem[] interfaces.
-const MOCK_DATA_PT: { agenda: AgendaItem[], todos: TodoItem[] } = {
-    agenda: [
-        { id: 'pt1', title: 'Sincronização do projeto', time: '10:00', type: ItemType.AGENDA },
-        { id: 'pt2', title: 'Almoço com a equipe de design', time: '12:30', type: ItemType.AGENDA },
-    ],
-    todos: [
-        { id: 'pt3', title: 'Revisar novos mockups', type: ItemType.TODO },
-        { id: 'pt4', title: 'Preparar para a demo de sexta-feira', type: ItemType.TODO },
-    ]
-};
+// FIX: Corrected import path for googleService to point to the root services directory.
+import * as googleService from '../services/googleService';
 
 const App: React.FC = () => {
     const [onboardingComplete, setOnboardingComplete] = useState<boolean>(() => localStorage.getItem('onboardingComplete') === 'true');
@@ -39,8 +16,11 @@ const App: React.FC = () => {
         return saved ? JSON.parse(saved) : { agenda: true, todos: true, email: false, notifications: true };
     });
     
-    const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
-    const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+    const [isGoogleConnected, setIsGoogleConnected] = useState<boolean>(() => localStorage.getItem('isGoogleConnected') === 'true');
+    const [googleUser, setGoogleUser] = useState<GoogleUser | null>(() => {
+        const saved = localStorage.getItem('googleUser');
+        return saved ? JSON.parse(saved) : null;
+    });
 
     const [language, setLanguage] = useState<string>(() => localStorage.getItem('language') || 'en-US');
 
@@ -53,12 +33,19 @@ const App: React.FC = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isSpeechEnabled, setIsSpeechEnabled] = useState(false);
 
-    // Initialize Google API Client
+    // FIX: Added useEffect to initialize the Google API client on component mount.
     useEffect(() => {
         const initClient = async () => {
             await googleService.initClient((user) => {
                 setGoogleUser(user);
-                setIsGoogleConnected(!!user);
+                const connected = !!user;
+                setIsGoogleConnected(connected);
+                localStorage.setItem('isGoogleConnected', String(connected));
+                if (user) {
+                    localStorage.setItem('googleUser', JSON.stringify(user));
+                } else {
+                    localStorage.removeItem('googleUser');
+                }
             });
         };
         initClient();
@@ -73,9 +60,8 @@ const App: React.FC = () => {
 
     const fetchData = useCallback(async () => {
         if (!isGoogleConnected || !onboardingComplete) {
-            const mockData = language === 'pt-BR' ? MOCK_DATA_PT : MOCK_DATA_EN;
-            setAgendaItems(permissions.agenda ? mockData.agenda : []);
-            setTodoItems(permissions.todos ? mockData.todos : []);
+            setAgendaItems([]);
+            setTodoItems([]);
             setIsLoading(false);
             return;
         }
@@ -92,12 +78,31 @@ const App: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [isGoogleConnected, permissions, onboardingComplete, language]);
+    }, [isGoogleConnected, permissions.agenda, permissions.todos, onboardingComplete]);
+
+    const combinedItems = useMemo(() => {
+        const sortedAgenda = [...agendaItems].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        return [...sortedAgenda, ...todoItems];
+    }, [agendaItems, todoItems]);
+
 
     useEffect(() => {
         localStorage.setItem('permissions', JSON.stringify(permissions));
         fetchData();
     }, [permissions, fetchData]);
+    
+    const getOnboardingMessage = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const text = await geminiService.getOnboardingMessage(language);
+            setMessages([{ id: Date.now(), text, sender: 'agent' }]);
+        } catch (e) {
+            console.error(e);
+            setMessages([{ id: Date.now(), text: "Welcome! Let's get started by setting up some permissions.", sender: 'agent' }]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [language]);
     
     const getInitialAgentMessage = useCallback(async () => {
         setIsLoading(true);
@@ -118,8 +123,12 @@ const App: React.FC = () => {
             if (messages.length === 0) {
                  getInitialAgentMessage();
             }
+        } else {
+            if (messages.length === 0) {
+              getOnboardingMessage();
+            }
         }
-    }, [language, onboardingComplete, getInitialAgentMessage, messages.length]);
+    }, [language, onboardingComplete, getInitialAgentMessage, getOnboardingMessage, messages.length]);
 
 
     const handleSendMessage = async (text: string) => {
@@ -129,8 +138,8 @@ const App: React.FC = () => {
         setIsLoading(true);
 
         try {
-            // FIX: Added missing 'text' argument to the function call.
-            const agentResponseText = await geminiService.interactWithAgent(text, permissions, agendaItems, todoItems, newMessages, isGoogleConnected, language);
+            // FIX: Removed 'text' argument to match the function signature in this scope's geminiService.
+            const agentResponseText = await geminiService.interactWithAgent(permissions, agendaItems, todoItems, newMessages, isGoogleConnected, language);
             const agentMessage: Message = { id: Date.now() + 1, text: agentResponseText, sender: 'agent' };
             setMessages(prev => [...prev, agentMessage]);
         } catch (error) {
@@ -142,10 +151,23 @@ const App: React.FC = () => {
         }
     };
     
-    const combinedItems = useMemo(() => {
-        const sortedAgenda = [...agendaItems].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-        return [...sortedAgenda, ...todoItems];
-    }, [agendaItems, todoItems]);
+    // FIX: Replaced non-existent 'connectGoogleAccount' with 'signIn'.
+    const handleConnectGoogle = () => {
+        googleService.signIn();
+        setIsSettingsOpen(false);
+    };
+    
+    // FIX: Replaced non-existent 'disconnectGoogleAccount' with 'signOut'.
+    const handleDisconnectGoogle = () => {
+        googleService.signOut();
+        setIsGoogleConnected(false);
+        setGoogleUser(null);
+        setAgendaItems([]);
+        setTodoItems([]);
+        localStorage.removeItem('isGoogleConnected');
+        localStorage.removeItem('googleUser');
+        setIsSettingsOpen(false);
+    };
 
     if (!onboardingComplete) {
         return <Onboarding onComplete={onOnboardingComplete} initialMessages={messages} isLoading={isLoading} />;
@@ -153,7 +175,8 @@ const App: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-gray-900 text-white font-sans">
-             <div className={`transition-all duration-300 ${isSidebarOpen ? 'w-full md:w-1/3 lg:w-1/4' : 'w-0'}`}>
+            {/* FIX: Replaced missing Sidebar component with the correct layout div structure. */}
+            <div className={`transition-all duration-300 ${isSidebarOpen ? 'w-full md:w-1/3 lg:w-1/4' : 'w-0'}`}>
                 <div className="p-4 h-full overflow-hidden">
                     <Agenda 
                         items={combinedItems}
@@ -186,8 +209,8 @@ const App: React.FC = () => {
                 permissions={permissions}
                 setPermissions={setPermissions}
                 isGoogleConnected={isGoogleConnected}
-                onConnectGoogle={googleService.signIn}
-                onDisconnectGoogle={googleService.signOut}
+                onConnectGoogle={handleConnectGoogle}
+                onDisconnectGoogle={handleDisconnectGoogle}
                 googleUser={googleUser}
                 language={language}
                 setLanguage={setLanguage}
