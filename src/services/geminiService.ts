@@ -1,9 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
-// FIX: Corrected import path to be relative to src/services directory.
 import type { Permissions, Message, AgendaItem, TodoItem } from '../../types';
 
 // FIX: API key must be obtained from process.env.API_KEY per coding guidelines.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const getLanguageName = (langCode: string): string => {
     const map: { [key: string]: string } = {
@@ -13,9 +12,6 @@ const getLanguageName = (langCode: string): string => {
     return map[langCode] || 'English';
 }
 
-/**
- * Generates the initial welcome message for the onboarding process.
- */
 export const getOnboardingMessage = async (language: string): Promise<string> => {
     const languageName = getLanguageName(language);
     const response = await ai.models.generateContent({
@@ -33,6 +29,7 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
     let context = "This is the user's current data based on the permissions they granted. Use this to inform your responses.\n";
     let hasData = false;
     
+    // FIX: Simplified check for permission.
     if (permissions.agenda) {
         hasData = true;
         context += "\n## Today's Agenda\n";
@@ -45,6 +42,7 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
         }
     }
 
+    // FIX: Simplified check for permission.
     if (permissions.todos) {
         hasData = true;
         context += "\n## To-Do List (Pending)\n";
@@ -56,7 +54,8 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
              context += "No pending to-do items.\n";
         }
     }
-
+    
+    // FIX: Added email permission context for consistency.
     if (permissions.email) {
         context += "\n## Emails\n";
         context += "Email access is enabled, but email data is not yet available in this context. You can inform the user you can see they have granted permission, but cannot yet read emails.\n";
@@ -69,9 +68,6 @@ const buildContext = (permissions: Permissions, agendaItems: AgendaItem[], todoI
     return context;
 };
 
-/**
- * Generates the first message after the user connects their account.
- */
 export const getInitialAgentMessage = async (permissions: Permissions, agenda: AgendaItem[], todos: TodoItem[], googleConnected: boolean, language: string): Promise<string> => {
     const context = buildContext(permissions, agenda, todos, googleConnected);
     const languageName = getLanguageName(language);
@@ -84,11 +80,7 @@ export const getInitialAgentMessage = async (permissions: Permissions, agenda: A
     return response.text ?? "How can I help you today?";
 };
 
-/**
- * Handles a user's message in the chat, considering context and history.
- */
 export const interactWithAgent = async (
-  text: string,
   permissions: Permissions, 
   agenda: AgendaItem[], 
   todos: TodoItem[],
@@ -106,24 +98,10 @@ export const interactWithAgent = async (
     
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [...history], // History now includes the latest message
+      contents: [...history],
       config: {
         systemInstruction: `You are a helpful personal AI assistant. Here is the user's current data context, which you should use to answer questions:\n${context}\nIMPORTANT: You must respond in ${languageName}.`,
       }
     });
     return response.text ?? "I'm sorry, I could not process that. Could you try again?";
-};
-
-/**
- * Generates a proactive notification message for an upcoming event.
- */
-export const generateNotificationMessage = async (eventTitle: string, eventTime: string, language: string): Promise<string> => {
-    const languageName = getLanguageName(language);
-    const prompt = `You are a personal AI assistant. Generate a short, friendly, and helpful notification message for the user. The message should remind them of their upcoming event titled "${eventTitle}" scheduled for ${eventTime}. Assume the event is about 15-30 minutes away. Keep it under 150 characters. IMPORTANT: The entire response must be in ${languageName}.`;
-
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-    });
-    return response.text ?? `Reminder: You have an event at ${eventTime}: ${eventTitle}`;
 };
