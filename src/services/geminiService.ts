@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Permissions, MockData, Message } from '../types';
 
-// NOTE: This uses the VITE_ environment variable prefix
+// NOTE: This uses the VITE_ environment variable prefix, which is crucial for client-side code in Vite.
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 const getLanguageName = (langCode: string): string => {
@@ -21,7 +21,7 @@ export const getOnboardingMessage = async (language: string): Promise<string> =>
       model: 'gemini-2.5-flash',
       contents: `Generate a friendly and welcoming message for a user who is opening a personal AI assistant app for the first time. The message should be brief, introduce yourself as their personal AI agent, and encourage them to configure permissions to get started. IMPORTANT: The response must be written in ${languageName}.`,
     });
-    return response.text;
+    return response.text ?? '';
 };
 
 const buildContext = (permissions: Permissions, mockData: MockData, googleConnected: boolean): string => {
@@ -29,43 +29,43 @@ const buildContext = (permissions: Permissions, mockData: MockData, googleConnec
         return "No data is available. The user has not connected their account yet. Inform the user that they need to connect their account in settings to get started.";
     }
 
-    const contextParts: string[] = ["This is the user's current data based on the permissions they granted. Use this to inform your responses.\n"];
+    let context = "This is the user's current data based on the permissions they granted. Use this to inform your responses.\n";
     let hasData = false;
     
     if (permissions.agenda) {
         hasData = true;
-        contextParts.push("\n## Today's Agenda\n");
+        context += "\n## Today's Agenda\n";
         if (mockData.agenda.length > 0) {
             mockData.agenda.forEach(item => {
-                contextParts.push(`- ${item.time} ${item.title} (${item.completed ? 'completed' : 'pending'})\n`);
+                context += `- ${item.time} ${item.title} (${item.completed ? 'completed' : 'pending'})\n`;
             });
         } else {
-            contextParts.push("No agenda items for today.\n");
+            context += "No agenda items for today.\n";
         }
     }
 
     if (permissions.todos) {
         hasData = true;
-        contextParts.push("\n## To-Do List\n");
+        context += "\n## To-Do List\n";
         if (mockData.todos.length > 0) {
             mockData.todos.forEach(item => {
-                contextParts.push(`- ${item.title} (${item.completed ? 'completed' : 'pending'})\n`);
+                context += `- ${item.title} (${item.completed ? 'completed' : 'pending'})\n`;
             });
         } else {
-             contextParts.push("No to-do items.\n");
+             context += "No to-do items.\n";
         }
     }
 
     if (permissions.email) {
         hasData = true;
         const unreadEmails = mockData.emails.filter(e => !e.read);
-        contextParts.push(`\n## Emails (${unreadEmails.length} unread)\n`);
+        context += `\n## Emails (${unreadEmails.length} unread)\n`;
         if (unreadEmails.length > 0) {
              unreadEmails.forEach(email => {
-                contextParts.push(`- From: ${email.sender}, Subject: ${email.subject}\n`);
+                context += `- From: ${email.sender}, Subject: ${email.subject}\n`;
             });
         } else {
-             contextParts.push("No unread emails.\n");
+             context += "No unread emails.\n";
         }
     }
 
@@ -73,7 +73,7 @@ const buildContext = (permissions: Permissions, mockData: MockData, googleConnec
         return "The user has connected their account, but has not granted any permissions for you to view the data. Ask them to enable permissions in settings.";
     }
 
-    return contextParts.join('');
+    return context;
 };
 
 /**
@@ -88,7 +88,7 @@ export const getInitialAgentMessage = async (permissions: Permissions, mockData:
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text;
+    return response.text ?? '';
 };
 
 /**
@@ -105,25 +105,19 @@ export const interactWithAgent = async (
     const context = buildContext(permissions, mockData, googleConnected);
     const languageName = getLanguageName(language);
     
-    // We only want to send the last few messages to keep the context relevant and the payload small
-    const recentMessages = messages.slice(-10);
-
-    const history = recentMessages.map(msg => ({
+    const history = messages.map(msg => ({
       role: msg.sender === 'user' ? 'user' : 'model',
       parts: [{ text: msg.text }],
     }));
-
-    // The current user message is the last part of the contents
-    const contents = [...history, { role: 'user', parts: [{ text }] }];
     
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: contents,
+      contents: [...history, { role: 'user', parts: [{ text }] }],
       config: {
         systemInstruction: `You are a helpful personal AI assistant. Here is the user's current data context, which you should use to answer questions:\n${context}\nIMPORTANT: You must respond in ${languageName}.`,
       }
     });
-    return response.text;
+    return response.text ?? '';
 };
 
 /**
@@ -137,5 +131,5 @@ export const generateNotificationMessage = async (eventTitle: string, eventTime:
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
-    return response.text;
+    return response.text ?? '';
 };
