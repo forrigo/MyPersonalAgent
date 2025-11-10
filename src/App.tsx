@@ -4,29 +4,29 @@ import { Chat } from './components/Chat';
 import { Header } from './components/Header';
 import { Onboarding } from './components/Onboarding';
 import { SettingsModal } from './components/SettingsModal';
-import { Permissions, Message, AgendaItem, TodoItem, GoogleUser } from './types';
+import { Permissions, Message, AgendaItem, TodoItem, GoogleUser, ItemType } from './types';
 import * as geminiService from './services/geminiService';
 import * as googleService from './services/googleService';
 
 const MOCK_DATA_EN: { agenda: AgendaItem[], todos: TodoItem[] } = {
     agenda: [
-        { id: 'en1', title: 'Project sync-up', time: '10:00 AM', type: 'AGENDA' },
-        { id: 'en2', title: 'Lunch with the design team', time: '12:30 PM', type: 'AGENDA' },
+        { id: 'en1', title: 'Project sync-up', time: '10:00 AM', type: ItemType.AGENDA },
+        { id: 'en2', title: 'Lunch with the design team', time: '12:30 PM', type: ItemType.AGENDA },
     ],
     todos: [
-        { id: 'en3', title: 'Review new mockups', type: 'TODO' },
-        { id: 'en4', title: 'Prepare for Friday demo', type: 'TODO' },
+        { id: 'en3', title: 'Review new mockups', type: ItemType.TODO },
+        { id: 'en4', title: 'Prepare for Friday demo', type: ItemType.TODO },
     ]
 };
 
 const MOCK_DATA_PT: { agenda: AgendaItem[], todos: TodoItem[] } = {
     agenda: [
-        { id: 'pt1', title: 'Sincronização do projeto', time: '10:00', type: 'AGENDA' },
-        { id: 'pt2', title: 'Almoço com a equipe de design', time: '12:30', type: 'AGENDA' },
+        { id: 'pt1', title: 'Sincronização do projeto', time: '10:00', type: ItemType.AGENDA },
+        { id: 'pt2', title: 'Almoço com a equipe de design', time: '12:30', type: ItemType.AGENDA },
     ],
     todos: [
-        { id: 'pt3', title: 'Revisar novos mockups', type: 'TODO' },
-        { id: 'pt4', title: 'Preparar para a demo de sexta-feira', type: 'TODO' },
+        { id: 'pt3', title: 'Revisar novos mockups', type: ItemType.TODO },
+        { id: 'pt4', title: 'Preparar para a demo de sexta-feira', type: ItemType.TODO },
     ]
 };
 
@@ -158,7 +158,7 @@ const App: React.FC = () => {
     };
 
     if (!onboardingComplete) {
-        return <Onboarding onComplete={onOnboardingComplete} initialMessages={messages} isLoading={isLoading} />;
+        return <Onboarding onComplete={onOnboardingComplete} initialMessages={[]} isLoading={false} />;
     }
 
     return (
