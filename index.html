@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-," />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1a202c">
-    <title>My Personal AI Agent</title>
+    <meta name="theme-color" content="#111827" />
     <link rel="manifest" href="/manifest.json" />
-  <script type="importmap">
+    <title>Personal AI Agent</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.2.0",
@@ -15,24 +16,25 @@
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
     "vite": "https://aistudiocdn.com/vite@^7.2.2",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0"
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0",
+    "gapi-script": "https://aistudiocdn.com/gapi-script@^1.2.0"
   }
 }
 </script>
 </head>
-  <body class="bg-gray-900 text-white font-sans">
+  <body>
     <div id="root"></div>
-    <script type="module" src="/src/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js').then(registration => {
-            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-          }, err => {
-            console.log('ServiceWorker registration failed: ', err);
+            console.log('SW registered: ', registration);
+          }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
           });
         });
       }
     </script>
+    <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>
